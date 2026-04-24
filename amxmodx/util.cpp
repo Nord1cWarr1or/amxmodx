@@ -333,29 +333,92 @@ void UTIL_FakeClientCommand(edict_t *pEdict, const char *cmd, int argc, const ch
 	if (!cmd)
 		return;						// no command 
 
-	// store command
-	g_fakecmd.argv[0] = cmd;
+	char szCommand[128];
+	strncopy(szCommand, cmd, sizeof(szCommand));
 
+	char *pArgs = strchr(szCommand, ' ');
+	if (pArgs)
+	{
+		*pArgs = '\0';
+		pArgs++;
+	}
+
+	// store command
+	static char szStaticCmd[128];
+	strncopy(szStaticCmd, szCommand, sizeof(szStaticCmd));
+	g_fakecmd.argv[0] = szStaticCmd;
 	g_fakecmd.argc = 1;
 	g_fakecmd.args[0] = '\0';
 
 	size_t len = 0;
-	for (int i = 0; i < argc && i < MAX_FAKE_ARGS - 1; ++i)
+	if (pArgs && *pArgs)
+	{
+		len = strncopy(g_fakecmd.args, pArgs, sizeof(g_fakecmd.args));
+		
+		// We need a separate buffer for argv parsing to keep g_fakecmd.args intact
+		static char szArgBuffer[sizeof(g_fakecmd.args)];
+		strncopy(szArgBuffer, pArgs, sizeof(szArgBuffer));
+
+		char *pCurrent = szArgBuffer;
+		while (*pCurrent && g_fakecmd.argc < MAX_FAKE_ARGS)
+		{
+			while (*pCurrent == ' ') pCurrent++;
+			if (!*pCurrent) break;
+
+			if (*pCurrent == '\"')
+			{
+				pCurrent++;
+				g_fakecmd.argv[g_fakecmd.argc++] = pCurrent;
+				while (*pCurrent && *pCurrent != '\"') pCurrent++;
+			}
+			else
+			{
+				g_fakecmd.argv[g_fakecmd.argc++] = pCurrent;
+				while (*pCurrent && *pCurrent != ' ') pCurrent++;
+			}
+
+			if (*pCurrent)
+			{
+				*pCurrent = '\0';
+				pCurrent++;
+			}
+		}
+	}
+
+	for (int i = 0; i < argc && g_fakecmd.argc < MAX_FAKE_ARGS; ++i)
 	{
 		if (!argv[i])
 			continue;
-
-		g_fakecmd.argv[i + 1] = argv[i];
-		g_fakecmd.argc++;
 
 		if (len > 0 && len < sizeof(g_fakecmd.args) - 1)
 		{
 			g_fakecmd.args[len++] = ' ';
 		}
 
+		bool has_space = (strchr(argv[i], ' ') != nullptr);
+		bool has_quotes = (argv[i][0] == '\"');
+
+		if (has_space && !has_quotes && len < sizeof(g_fakecmd.args) - 1)
+		{
+			g_fakecmd.args[len++] = '\"';
+		}
+
+		g_fakecmd.argv[g_fakecmd.argc++] = argv[i];
 		len += strncopy(g_fakecmd.args + len, argv[i], sizeof(g_fakecmd.args) - len);
+
+		if (has_space && !has_quotes && len < sizeof(g_fakecmd.args) - 1)
+		{
+			g_fakecmd.args[len++] = '\"';
+		}
 	}
-	g_fakecmd.args[sizeof(g_fakecmd.args) - 1] = '\0';
+
+	if (len < sizeof(g_fakecmd.args))
+		g_fakecmd.args[len] = '\0';
+	else
+		g_fakecmd.args[sizeof(g_fakecmd.args) - 1] = '\0';
+
+	for (int i = g_fakecmd.argc; i < MAX_FAKE_ARGS; ++i)
+		g_fakecmd.argv[i] = nullptr;
 
 	/* Notify plugins about this command */
 	if (fwd)
@@ -370,18 +433,18 @@ void UTIL_FakeClientCommand(edict_t *pEdict, const char *cmd, int argc, const ch
 		}
 
 		/* check for command and if needed also for first argument and call proper function */
-		CmdMngr::iterator aa = g_commands.clcmdprefixbegin(cmd);
+		CmdMngr::iterator aa = g_commands.clcmdprefixbegin(szStaticCmd);
 
 		if (!aa)
 		{
 			aa = g_commands.clcmdbegin();
 		}
 
-		const char *arg1 = (argc > 0) ? argv[0] : nullptr;
+		const char *arg1 = (g_fakecmd.argc > 1) ? g_fakecmd.argv[1] : nullptr;
 
 		while (aa)
 		{
-			if ((*aa).matchCommandLine(cmd, arg1) && (*aa).getPlugin()->isExecutable((*aa).getFunction()))
+			if ((*aa).matchCommandLine(szStaticCmd, arg1) && (*aa).getPlugin()->isExecutable((*aa).getFunction()))
 			{
 				if (executeForwards((*aa).getFunction(), static_cast<cell>(GET_PLAYER_POINTER(pEdict)->index),
 					static_cast<cell>((*aa).getFlags()), static_cast<cell>((*aa).getId())) > 0)

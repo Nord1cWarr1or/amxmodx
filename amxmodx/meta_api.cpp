@@ -1435,7 +1435,7 @@ const char *C_Cmd_Argv(int argc)
 {
 	// if the global "fake" flag is set, which means that engclient_cmd was used, supercede the function
 	if (g_fakecmd.fake)
-		RETURN_META_VALUE(MRES_SUPERCEDE, (argc < 3) ? g_fakecmd.argv[argc] : "");
+		RETURN_META_VALUE(MRES_SUPERCEDE, (argc < MAX_FAKE_ARGS) ? g_fakecmd.argv[argc] : "");
 
 	// otherwise ignore it
 	RETURN_META_VALUE(MRES_IGNORED, NULL);

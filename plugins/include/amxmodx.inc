@@ -1597,14 +1597,13 @@ native client_cmd(index, const command[], any:...);
  *
  * @param index         Client index, use 0 to execute from all clients
  * @param command       Client command to execute on
- * @param arg1          Optional command arguments
- * @param arg2          Optional command arguments
+ * @param ...           Optional command arguments
  *
  * @noreturn
  * @error           If a single client is specified and the index is not within
  *                  the range of 1 to MaxClients, an error will be thrown.
  */
-native engclient_cmd(index, const command[], const arg1[] = "", const arg2[] = "");
+native engclient_cmd(index, const command[], any:...);
 
 /**
  * Execute a command from the client without actually sending it to the client's
@@ -1619,14 +1618,13 @@ native engclient_cmd(index, const command[], const arg1[] = "", const arg2[] = "
  *
  * @param index         Client index, use 0 to execute from all clients
  * @param command       Client command to execute on
- * @param arg1          Optional command arguments
- * @param arg2          Optional command arguments
+ * @param ...           Optional command arguments
  *
  * @noreturn
  * @error           If a single client is specified and the index is not within
  *                  the range of 1 to MaxClients, an error will be thrown.
  */
-native amxclient_cmd(index, const command[], const arg1[] = "", const arg2[] = "");
+native amxclient_cmd(index, const command[], any:...);
 
 /**
  * Queues a command to be executed from the server console.

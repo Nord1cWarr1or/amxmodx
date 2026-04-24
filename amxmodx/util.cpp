@@ -355,9 +355,11 @@ void UTIL_FakeClientCommand(edict_t *pEdict, const char *cmd, int argc, const ch
 	{
 		len = strncopy(g_fakecmd.args, pArgs, sizeof(g_fakecmd.args));
 		
-		// Parse pArgs into g_fakecmd.argv for compatibility
-		// This is a simple parser, might not handle nested quotes perfectly but should be enough
-		char *pCurrent = g_fakecmd.args;
+		// We need a separate buffer for argv parsing to keep g_fakecmd.args intact
+		static char szArgBuffer[sizeof(g_fakecmd.args)];
+		strncopy(szArgBuffer, pArgs, sizeof(szArgBuffer));
+
+		char *pCurrent = szArgBuffer;
 		while (*pCurrent && g_fakecmd.argc < MAX_FAKE_ARGS)
 		{
 			while (*pCurrent == ' ') pCurrent++;

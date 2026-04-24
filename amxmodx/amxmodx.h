@@ -119,7 +119,7 @@ char* UTIL_SplitHudMessage(register const char *src);
 int UTIL_ReadFlags(const char* c);
 
 void UTIL_ClientPrint(edict_t *pEntity, int msg_dest, char *msg);
-void UTIL_FakeClientCommand(edict_t *pEdict, const char *cmd, const char *arg1 = NULL, const char *arg2 = NULL, bool fwd = false);
+void UTIL_FakeClientCommand(edict_t *pEdict, const char *cmd, int argc, const char *argv[], bool fwd = false);
 void UTIL_GetFlags(char* flags, int flag);
 void UTIL_HudMessage(edict_t *pEntity, const hudtextparms_t &textparms, const char *pMessage);
 void UTIL_DHudMessage(edict_t *pEntity, const hudtextparms_t &textparms, const char *pMessage, unsigned int length);
@@ -153,10 +153,12 @@ struct WeaponsVault
 	short int ammoSlot;
 };
 
+#define MAX_FAKE_ARGS 64
+
 struct fakecmd_t
 {
-	char args[256];
-	const char *argv[3];
+	char args[1024];
+	const char *argv[MAX_FAKE_ARGS];
 	int argc;
 	bool fake;
 	bool notify; // notify to plugins.

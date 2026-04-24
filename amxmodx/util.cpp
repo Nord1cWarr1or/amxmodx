@@ -328,40 +328,34 @@ void UTIL_TeamInfo(edict_t *pEntity, int playerIndex, const char *pszTeamName)
 //  2) Invokes ClientCommand in GameDLL
 //  3) meta_api.cpp overrides Cmd_Args, Cmd_Argv, Cmd_Argc and gives them fake values if the "fake" flag is set
 //  4) unsets the global "fake" flag
-void UTIL_FakeClientCommand(edict_t *pEdict, const char *cmd, const char *arg1, const char *arg2, bool fwd)
+void UTIL_FakeClientCommand(edict_t *pEdict, const char *cmd, int argc, const char *argv[], bool fwd)
 {
-	if (!cmd) 
+	if (!cmd)
 		return;						// no command 
 
 	// store command
 	g_fakecmd.argv[0] = cmd;
-	// if only arg2 is passed, swap the arguments
-	if (!arg1 && arg2)
-	{
-		arg1 = arg2;
-		arg2 = NULL;
-	}
 
-	// store arguments
-	if (arg2)
-	{								// both arguments passed
-		g_fakecmd.argc = 3;			// 2 arguments + 1 command
-		// store arguments
-		g_fakecmd.argv[1] = arg1;
-		g_fakecmd.argv[2] = arg2;
-		// build argument line
-		ke::SafeSprintf(g_fakecmd.args, sizeof(g_fakecmd.args), "%s %s", arg1, arg2);
+	g_fakecmd.argc = 1;
+	g_fakecmd.args[0] = '\0';
+
+	size_t len = 0;
+	for (int i = 0; i < argc && i < MAX_FAKE_ARGS - 1; ++i)
+	{
+		if (!argv[i])
+			continue;
+
+		g_fakecmd.argv[i + 1] = argv[i];
+		g_fakecmd.argc++;
+
+		if (len > 0 && len < sizeof(g_fakecmd.args) - 1)
+		{
+			g_fakecmd.args[len++] = ' ';
+		}
+
+		len += strncopy(g_fakecmd.args + len, argv[i], sizeof(g_fakecmd.args) - len);
 	}
-	else if (arg1)
-	{								// only one argument passed
-		g_fakecmd.argc = 2;			// 1 argument + 1 command
-		// store argument
-		g_fakecmd.argv[1] = arg1;
-		// build argument line
-		ke::SafeSprintf(g_fakecmd.args, sizeof(g_fakecmd.args), "%s", arg1);
-	}
-	else
-		g_fakecmd.argc = 1;			// no argmuents -> only one command
+	g_fakecmd.args[sizeof(g_fakecmd.args) - 1] = '\0';
 
 	/* Notify plugins about this command */
 	if (fwd)
@@ -382,6 +376,8 @@ void UTIL_FakeClientCommand(edict_t *pEdict, const char *cmd, const char *arg1, 
 		{
 			aa = g_commands.clcmdbegin();
 		}
+
+		const char *arg1 = (argc > 0) ? argv[0] : nullptr;
 
 		while (aa)
 		{

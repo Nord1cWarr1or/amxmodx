@@ -2622,7 +2622,7 @@ static cell AMX_NATIVE_CALL read_argv(AMX *amx, cell *params) /* 3 param */
 {
 	int argc = params[1];
 
-	const char *value = g_fakecmd.notify ? ((argc >= 0 && argc < 3 && g_fakecmd.argv[argc] != nullptr) ? g_fakecmd.argv[argc] : "") : CMD_ARGV(argc);
+	const char *value = g_fakecmd.notify ? ((argc >= 0 && argc < MAX_FAKE_ARGS && g_fakecmd.argv[argc] != nullptr) ? g_fakecmd.argv[argc] : "") : CMD_ARGV(argc);
 	return set_amxstring_utf8(amx, params[2], value, strlen(value), params[3]);
 }
 
@@ -2635,7 +2635,7 @@ static cell AMX_NATIVE_CALL read_argv_int(AMX *amx, cell *params) /* 1 param */
 		return 0;
 	}
 
-	const char *value = g_fakecmd.notify ? ((argc >= 1 && argc < 3 && g_fakecmd.argv[argc] != nullptr) ? g_fakecmd.argv[argc] : "") : CMD_ARGV(argc);
+	const char *value = g_fakecmd.notify ? ((argc >= 1 && argc < MAX_FAKE_ARGS && g_fakecmd.argv[argc] != nullptr) ? g_fakecmd.argv[argc] : "") : CMD_ARGV(argc);
 
 	return atoi(value);
 }
@@ -2649,7 +2649,7 @@ static cell AMX_NATIVE_CALL read_argv_float(AMX *amx, cell *params) /* 1 param *
 		return 0;
 	}
 
-	const char *value = g_fakecmd.notify ? ((argc >= 1 && argc < 3 && g_fakecmd.argv[argc] != nullptr) ? g_fakecmd.argv[argc] : "") : CMD_ARGV(argc);
+	const char *value = g_fakecmd.notify ? ((argc >= 1 && argc < MAX_FAKE_ARGS && g_fakecmd.argv[argc] != nullptr) ? g_fakecmd.argv[argc] : "") : CMD_ARGV(argc);
 	float flValue = atof(value);
 
 	return amx_ftoc(flValue);
@@ -2791,25 +2791,29 @@ static cell AMX_NATIVE_CALL server_exec(AMX *amx, cell *params)
 
 int sendFakeCommand(AMX *amx, cell *params, bool send_forward = false)
 {
-	enum args { arg_count, arg_index, arg_command, arg_argument1, arg_argument2 };
+	int num_params = params[0] / sizeof(cell);
 
 	char command[128 * 2];
-	auto command_length = strncopy(command, get_amxaddr(amx, params[arg_command]), sizeof(command));
+	auto command_length = strncopy(command, get_amxaddr(amx, params[2]), sizeof(command));
 
 	if (!command_length)
 	{
 		return 0;
 	}
 
-	char argument1[128];
-	char argument2[128];
-	auto argument1_length = strncopy(argument1, get_amxaddr(amx, params[arg_argument1]), sizeof(argument1));
-	auto argument2_length = strncopy(argument2, get_amxaddr(amx, params[arg_argument2]), sizeof(argument2));
+	const char *argv[MAX_FAKE_ARGS];
+	char arg_buffer[MAX_FAKE_ARGS * 128];
+	char *pCurrent = arg_buffer;
+	int argc = 0;
 
-	const char *pArgument1 = argument1_length ? argument1 : nullptr;
-	const char *pArgument2 = argument2_length ? argument2 : nullptr;
+	for (int i = 3; i <= num_params && argc < MAX_FAKE_ARGS; ++i)
+	{
+		unsigned int len = strncopy(pCurrent, get_amxaddr(amx, params[i]), 128);
+		argv[argc++] = pCurrent;
+		pCurrent += len + 1;
+	}
 
-	int index = params[arg_index];
+	int index = params[1];
 
 	if (index == 0)
 	{
@@ -2818,7 +2822,7 @@ int sendFakeCommand(AMX *amx, cell *params, bool send_forward = false)
 			CPlayer* pPlayer = GET_PLAYER_POINTER_I(i);
 
 			if (pPlayer->ingame /*&& pPlayer->initialized */)
-				UTIL_FakeClientCommand(pPlayer->pEdict, command, pArgument1, pArgument2, send_forward);
+				UTIL_FakeClientCommand(pPlayer->pEdict, command, argc, argv, send_forward);
 		}
 	}
 	else
@@ -2832,19 +2836,19 @@ int sendFakeCommand(AMX *amx, cell *params, bool send_forward = false)
 		CPlayer* pPlayer = GET_PLAYER_POINTER_I(index);
 
 		if (/*pPlayer->initialized && */pPlayer->ingame)
-			UTIL_FakeClientCommand(pPlayer->pEdict, command, pArgument1, pArgument2, send_forward);
+			UTIL_FakeClientCommand(pPlayer->pEdict, command, argc, argv, send_forward);
 	}
 
 	return 1;
 }
 
-// native engclient_cmd(index, const command[], const arg1[] = "", const arg2[] = "");
+// native engclient_cmd(index, const command[], any:...);
 static cell AMX_NATIVE_CALL engclient_cmd(AMX *amx, cell *params)
 {
 	return sendFakeCommand(amx, params);
 }
 
-// native amxclient_cmd(index, const command[], const arg1[] = "", const arg2[] = "");
+// native amxclient_cmd(index, const command[], any:...);
 static cell AMX_NATIVE_CALL amxclient_cmd(AMX *amx, cell *params)
 {
 	return sendFakeCommand(amx, params, true);
